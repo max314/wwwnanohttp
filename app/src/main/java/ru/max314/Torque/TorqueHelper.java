@@ -1,3 +1,7 @@
+/*
+
+http://de-core-docs.readthedocs.org/ru/master/for-sites/for-nitro.html#id6
+ */
 package ru.max314.Torque;
 
 import android.content.ComponentName;
@@ -13,6 +17,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import ru.max314.util.LogHelper;
+
 
 /**
  * Created by max on 06.11.2015.
@@ -24,18 +33,25 @@ public class TorqueHelper {
     HashMap<String, String> allPIDs = new HashMap<String, String>();
     boolean connectedToECU = false;
     String[] activePIDse;
-    String[] ecuSupportedPIDs;
+    String[] ecuSupportedPIDs = new String[0];
     List<PidInfo> pidInfos = new ArrayList<PidInfo>();
 
+    private static final LogHelper LOG = new LogHelper(TorqueHelper.class);
+
     public TorqueHelper(Context parentContext) {
+        LOG.d("constaruct");
         this.parentContext = parentContext;
     }
 
     public void start() {
+        if (torqueService!=null){
+            stop();
+        }
+        LOG.d("start()");
         Intent intent = new Intent();
         intent.setClassName("org.prowl.torque", "org.prowl.torque.remote.TorqueService");
         boolean successfulBind = parentContext.bindService(intent, connection, 0);
-
+        LOG.d("successfulBind"+successfulBind);
     }
 
     public void stop(){
@@ -56,10 +72,15 @@ public class TorqueHelper {
     }
 
     public void refresh(){
+        LOG.d("refresh()");
+        if (torqueService==null)
+            return;
+        LOG.d("dorefresh()");
         doRefresh();
     }
 
     private void doRefresh() {
+
         clearData();
         try {
             connectedToECU = torqueService.isConnectedToECU();
@@ -85,18 +106,29 @@ public class TorqueHelper {
             for (int i = 0; i < pids.length; i++) {
                 pidInfos.add(new PidInfo(pids[i],allPIDs.get(pids[i]),values[i]));
             }
+            dumpInfo();
         } catch (RemoteException e) {
             e.printStackTrace();
         }
     }
 
+    private void dumpInfo(){
+        LOG.d("dump");
+        for (int i = 0; i < pidInfos.size(); i++) {
+            LOG.d(pidInfos.get(i).toString());
+        }
+
+    }
+
     private ServiceConnection connection = new ServiceConnection() {
         public void onServiceConnected(ComponentName arg0, IBinder service) {
+            LOG.d("onServiceConnected");
             torqueService = ITorqueService.Stub.asInterface(service);
             fillAllData();
         }
 
         public void onServiceDisconnected(ComponentName name) {
+            LOG.d("onServiceDisconnected");
             torqueService = null;
         }
     };
@@ -114,10 +146,17 @@ public class TorqueHelper {
         } catch (RemoteException e) {
             e.printStackTrace();
         }
+        LOG.d("all pids");
         for (int i=0;i<allPid.length;i++){
             //String[] pid= allPid[i].split("\\,");
             allPIDs.put(allPid[i],allPidDesc[i]);
+            LOG.d(String.format("%s = %s",allPid[i],allPidDesc[i]));
         }
+        LOG.d("all supported pids");
+        for (int i=0;i<ecuSupportedPIDs.length; i++) {
+            LOG.d(String.format("%s",ecuSupportedPIDs[i]));
+        }
+
     }
 
     public class PidInfo{
